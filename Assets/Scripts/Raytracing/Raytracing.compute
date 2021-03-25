@@ -1,0 +1,229 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+// In HLSL, unlike in C#, a function or variable declaration needs to appear before it is used.
+// For each screen pixel's center, we calculate the origin and direction of the ray, and output the latter as color. 
+
+RWTexture2D<float4> Result;
+float4x4 _CameraToWorld;
+float4x4 _CameraInverseProjection;
+Texture2D<float4> _SkyboxTexture;
+float4 _DirectionalLight;
+SamplerState sampler_SkyboxTexture;
+static const float PI = 3.14159265f;
+static const float Kd = 0.3f;	// Diffuse coefficient
+float2 _PixelOffset;
+/*
+Mathematically, we will calculate the intersection between our ray
+and our scene geometry, and store the hit parameters (position, normal and distance along the ray).
+If our ray hits multiple objects, we will pick the closest one.
+*/
+
+struct Ray 
+{
+	float3 origin;
+	float3 direction;
+	float3 energy;
+};
+
+Ray CreateRay(float3 origin, float3 direction) 
+{
+	Ray ray;
+	ray.origin = origin;
+	ray.direction = direction;
+	ray.energy = float3(1.0f, 1.0f, 1.0f);	// The ray starts with full throughput on all color channels, and will diminish with each reflection.
+	return ray;
+}
+
+Ray CreateCameraRay(float2 uv) 
+{
+	// Transform the camera origin to world space
+	float3 origin = mul(_CameraToWorld, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
+
+	// Invert the perspective projection of the view-space position
+	float3 direction = mul(_CameraInverseProjection, float4(uv, 0.0f, 1.0f)).xyz;	// Note: uv is 2 dimensional
+	// Transform the direction from camera to world space and normalize
+	direction = mul(_CameraToWorld, float4(direction, 0.0f)).xyz;
+	direction = normalize(direction);
+
+	return CreateRay(origin, direction);
+}
+
+struct RayHit
+{
+	float3 position;
+	float distance;
+	float3 normal;
+	float3 albedo;
+	float3 specular;
+};
+
+RayHit CreateRayHit()
+{
+	RayHit hit;
+	hit.position = float3(0.0f, 0.0f, 0.0f);
+	hit.distance = 1.#INF;
+	hit.normal = float3(0.0f, 0.0f, 0.0f);
+	hit.albedo = float3(0.0f, 0.0f, 0.0f);
+	hit.specular = float3(0.0f, 0.0f, 0.0f);
+	return hit;
+}
+
+struct Sphere
+{
+	float3 position;
+	float radius;
+	float3 albedo;
+	float3 specular;
+};
+
+
+StructuredBuffer<Sphere> _Spheres;
+
+// parameters in HLSL are passed by value and not by referenc
+
+// Intersect with a plane
+void IntersectGroundPlane(Ray ray, inout RayHit bestHit)
+{
+	// Calculate distance along the ray where the ground plane is intersected
+	float t = -ray.origin.y / ray.direction.y;
+	if (t > 0 && t < bestHit.distance)
+	{
+		bestHit.distance = t;
+		bestHit.position = ray.origin + t * ray.direction;
+		bestHit.normal = float3(0.0f, 1.0f, 0.0f);
+	}
+}
+
+/* 
+Intersect ray with sphere
+This time there can be two ray hit candidates: the entry point p1 - p2, and the exit point p1 + p2. 
+We will check the entry point first, and only use the exit point if the other one is not valid. 
+A sphere in our case is defined as a float4 comprised of position (xyz) and radius (w).
+*/
+
+// http://www.cs.cornell.edu/courses/cs4620/2013fa/lectures/03raytracing1.pdf
+
+void IntersectSphere(Ray ray, inout RayHit bestHit, Sphere sphere) 
+{
+	// Calculate distance along the ray where the sphere is intersected
+	float3 p = ray.origin - sphere.position;	
+	float p1 = -dot(ray.direction, p);
+	float p2sqr = p1 * p1 - dot(p, p) + sphere.radius * sphere.radius;
+	if (p2sqr < 0)
+		return;
+	float p2 = sqrt(p2sqr);
+	float t = p1 - p2 > 0 ? p1 - p2 : p1 + p2;
+	if (t > 0 && t < bestHit.distance)
+	{
+		bestHit.distance = t;
+		bestHit.position = ray.origin + t * ray.direction;
+		bestHit.normal = normalize(bestHit.position - sphere.position);
+		bestHit.albedo = sphere.albedo;
+		bestHit.specular = sphere.specular;
+	}
+}
+
+
+RayHit Trace(Ray ray) 
+{
+	RayHit bestHit = CreateRayHit();
+	IntersectGroundPlane(ray, bestHit);
+
+	uint numSpheres, stride;
+	_Spheres.GetDimensions(numSpheres, stride);
+	for (uint i = 0; i < numSpheres; i++) 
+	{
+		IntersectSphere(ray, bestHit, _Spheres[i]);
+	}
+	return bestHit;
+}
+
+/* 
+Our Shade function is now also responsible for updating the energy and generating the reflected ray, so here's where the inout becomes important. 
+To update the energy, we perform an element-wise multiplication with the specular color of the surface.
+Also, HLSL has an inbuilt function to reflect a ray using a given normal
+Due to floating point inaccuracy, it can happen that a reflected ray is blocked by the surface it is reflected on. 
+To prevent this self-occlusion we will offset the position just a bit along the normal direction.
+*/
+
+float3 Shade(inout Ray ray, RayHit hit) 
+{
+	if (hit.distance < 1.#INF) 
+	{
+		// Reflect the ray and multiply energy with specular reflection
+		ray.origin = hit.position + hit.normal * 0.001f;
+		ray.direction = reflect(ray.direction, hit.normal);
+		ray.energy *= hit.specular;
+		
+		// Return nothing
+		//return float3(0.0f, 0.0f, 0.0f);
+		
+		// Shadow calculations
+		bool shadow = false;
+		Ray shadowRay = CreateRay(hit.position + hit.normal * 0.001f, -1 * _DirectionalLight.xyz);
+		RayHit shadowHit = Trace(shadowRay);
+		if (shadowHit.distance != 1.#INF) 
+		{
+			return float3(0.0f, 0.0f, 0.0f);
+		}
+		// Diffuse calculation
+		return saturate(Kd * dot(hit.normal, _DirectionalLight.xyz) * -1) * _DirectionalLight.w * hit.albedo;
+	}
+	else
+	{
+		// Erase the ray's energy - the sky doesn't reflect anything
+		ray.energy = 0.0f;
+		// Sample the skybox and write it
+		float theta = acos(ray.direction.y) / -PI;
+		float phi = atan2(ray.direction.x, -ray.direction.z) / -PI * 0.5f;
+		return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture, float2(phi, theta), 0).xyz * 1.0f;
+	}
+}
+
+// Reflection.
+/* 
+Whenever we hit the surface, we reflect the ray according to the law of reflection (incident angle = angle of reflection), 
+reduce its energy, and repeat until we either hit the sky, 
+run out of energy or after a fixed amount of maximum bounces.
+*/
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+
+	 // Get the dimensions of the RenderTexture
+	uint width, height;
+	Result.GetDimensions(width, height);
+
+	// Transform pixel to [-1,1] range
+	float2 uv = float2((id.xy + _PixelOffset) / float2(width, height) * 2.0f - 1.0f);
+
+	// Get a ray for uvs
+	Ray ray = CreateCameraRay(uv);
+
+	// Trace and shade
+	/* 
+	Now we're going to execute a maximum number of 8 traces (the original ray plus 7 bounces), 
+	and add up the results of the Shade function calls, but multiplied with the ray's energy.
+	*/
+
+	float3 result = float3(0.1f, 0.1f, 0.070f);
+	for (int i = 0; i < 8; i++) 
+	{
+		RayHit hit = Trace(ray);
+		result += ray.energy * Shade(ray, hit);
+		if (!any(ray.energy))
+			break;
+	}
+	RayHit hit = Trace(ray);
+	result += Shade(ray, hit);
+	Result[id.xy] = float4(result, 1);
+}
+
+
+
