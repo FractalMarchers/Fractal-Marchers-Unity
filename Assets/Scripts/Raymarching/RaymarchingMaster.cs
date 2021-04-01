@@ -23,7 +23,11 @@ public class RaymarchingMaster : MonoBehaviour
     private GameObject prism;
     [SerializeField]
     private GameObject torus;
-    [Range(1, 10)]
+    [SerializeField]
+    private GameObject mandelbulb;
+    [SerializeField]
+    private GameObject tetrahedron;
+    [Range(0, 10)]
     public int numberOfReflections = 8;
     [SerializeField]
     private bool smoothBlend = false;
@@ -33,13 +37,18 @@ public class RaymarchingMaster : MonoBehaviour
     [SerializeField]
     private Color color;
 
-    struct Shape
+    //struct Shape
+    //{
+    //    Vector3 position;
+    //    Vector3 size;
+    //    Vector3 colour;
+    //    Vector3 albedo;
+    //};
+
+    private void Start()
     {
-        Vector3 position;
-        Vector3 size;
-        Vector3 colour;
-        Vector3 albedo;
-    };
+        Application.targetFrameRate = 60;
+    }
 
     private void OnEnable()
     {
@@ -55,8 +64,16 @@ public class RaymarchingMaster : MonoBehaviour
         _camera = this.GetComponent<Camera>();
     }
 
+    private void Update()
+    {
+
+    }
+
     private void SetShaderParameters()
     {
+        // Set the target and dispatch the compute shader
+        RaymarchingShader.SetTexture(0, "Result", _target);
+
         RaymarchingShader.SetMatrix("_CameraToWorld", _camera.cameraToWorldMatrix);   // _CameraToWorld declared in compute shader
         RaymarchingShader.SetMatrix("_CameraInverseProjection", _camera.projectionMatrix.inverse); // _CameraInverseProjection declared in compute shader
         RaymarchingShader.SetTexture(0, "_SkyboxTexture", SkyboxTexture);
@@ -76,13 +93,18 @@ public class RaymarchingMaster : MonoBehaviour
         RaymarchingShader.SetVector("_PrismSize", new Vector2(prism.transform.localScale.x, prism.transform.localScale.y));
         RaymarchingShader.SetVector("_Torus", torus.transform.position);
         RaymarchingShader.SetVector("_TorusSize", new Vector2(torus.transform.localScale.x, torus.transform.localScale.y));
+
+        RaymarchingShader.SetVector("_Mandelbulb", mandelbulb.transform.position);
+        RaymarchingShader.SetVector("_Tetrahedron", tetrahedron.transform.position);
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        //_camera = Camera.current;
-        //DirectionalLight = FindObjectOfType<Light>();
+        _camera = Camera.current;
+        DirectionalLight = FindObjectOfType<Light>();
 
+        // Make sure we have a current render target
+        InitRenderTexture();
         SetShaderParameters();
         Render(destination);
     }
@@ -104,11 +126,11 @@ public class RaymarchingMaster : MonoBehaviour
 
     private void Render(RenderTexture destination)
     {
-        // Make sure we have a current render target
-        InitRenderTexture();
+        //// Make sure we have a current render target
+        //InitRenderTexture();
 
-        // Set the target and dispatch the compute shader
-        RaymarchingShader.SetTexture(0, "Result", _target);
+        //// Set the target and dispatch the compute shader
+        //RaymarchingShader.SetTexture(0, "Result", _target);
 
         /* 
         Each thread group consists of a number of threads which is set in the shader itself. 

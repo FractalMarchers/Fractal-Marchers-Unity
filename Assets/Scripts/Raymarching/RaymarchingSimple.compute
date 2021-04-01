@@ -29,6 +29,13 @@ float3 _Torus;
 float2 _TorusSize;
 bool _SmoothBlend = false;
 float _BlendCoefficient = 0.0f;
+float3 _Mandelbulb;
+float3 _Tetrahedron;
+
+struct Shape
+{
+	bool invert;
+};
 
 struct Ray
 {
@@ -64,6 +71,7 @@ struct RayHit
 	float3 position;
 	float distance;
 	float3 normal;
+	int marchSteps;
 	float3 albedo;
 	float3 specular;
 };
@@ -73,26 +81,64 @@ RayHit CreateRayHit()
 	RayHit hit;
 	hit.position = float3(0.0f, 0.0f, 0.0f);
 	hit.distance = 1.#INF;
+	hit.marchSteps = 0;
 	hit.normal = float3(0.0f, 0.0f, 0.0f);
 	hit.albedo = float3(0.0f, 0.0f, 0.0f);
 	hit.specular = float3(1.0f, 1.0f, 1.0f);
 	return hit;
 }
 
-float smooth_min(float dst_A, float dst_B, float k) 
+float2 mandelbulb(float3 position)
+{
+	float3 z = position;
+	z = _Mandelbulb;
+	float dr = 1.0;
+	float r = 0.0;
+	int iterations = 0;
+	int power = 9;
+
+	for (int i = 0; i < 15; i++) {
+		iterations = i;
+		r = length(z);
+
+		if (r > 2) {
+			break;
+		}
+
+		// convert to polar coordinates
+		float theta = acos(z.z / r);
+		float phi = atan2(z.y, z.x);
+		dr = pow(r, power - 1.0)*power*dr + 1.0;
+
+		// scale and rotate the point
+		float zr = pow(r, power);
+		theta = theta * power;
+		phi = phi * power;
+
+		// convert back to cartesian coordinates
+		z = zr * float3(sin(theta)*cos(phi), sin(phi)*sin(theta), cos(theta));
+		z += position;
+	}
+	float dst = 0.5*log(r)*r / dr;
+	return float2(iterations, dst * 1);
+}
+
+float SmoothMin(float dst_A, float dst_B, float k)
 {
 	float h = max(k - abs(dst_A - dst_B), 0) / k;
 	return min(dst_A, dst_B) - h * h * h * k * 1 / 6.0;
 }
 
-float3 SDF_sphere(float3 eye)
+float SDF_sphere(float3 eye)
 {
 	float3 center = _Sphere.xyz;
 	float radius = _Sphere.w;
+
+	//eye.xz = (eye.xz + float2(1.0f, 1.0f)) % 2.0f - float2(1.0f, 1.0f);
 	return distance(eye, center) - radius;
 }
 
-float3 SDF_ground_plane(float3 eye)
+float SDF_ground_plane(float3 eye)
 {
 	float3 center = _Ground;
 	float3 size = _GroundScale;
@@ -102,7 +148,7 @@ float3 SDF_ground_plane(float3 eye)
 	return ud + n;
 }
 
-float3 SDF_box(float3 eye)
+float SDF_box(float3 eye)
 {
 	float3 center = _Box;
 	float3 size = _BoxScale;
@@ -121,7 +167,7 @@ float SDF_torus(float3 eye)
 	return length(q) - r2;
 }
 
-float3 SDF_prism(float3 eye)
+float SDF_prism(float3 eye)
 {
 	float3 center = _Prism;
 	float2 h = _PrismSize;
@@ -130,17 +176,43 @@ float3 SDF_prism(float3 eye)
 	return max(q.z - h.y, max(q.x*0.866025f + p.y*0.5f, -p.y) - h.x*0.5f);
 }
 
-float3 SDF(float3 eye)
+float SDF_recursive_tetrahedron(float3 z)
 {
-	float3 dst_ground = SDF_ground_plane(eye);
-	float3 dst_sphere = SDF_sphere(eye);
-	float3 dst_box = SDF_box(eye);
-	float3 dst_torus = SDF_torus(eye);
-	float3 dst_prism = SDF_prism(eye);
+	float3 a1 = float3(1, -1, 3);
+	float3 a2 = float3(-1, -3, 3);
+	float3 a3 = float3(1, -3, 1);
+	float3 a4 = float3(-1, -1, 1);
+	float3 c;
+	int n = 0;
+	int Iterations = 3;
+	float dist, d;
+	while (n < Iterations) {
+		c = a1; 
+		dist = distance(z, a1);
+		d = distance(z, a2); 
+		if (d < dist) { c = a2; dist = d; }
+		d = distance(z, a3); 
+		if (d < dist) { c = a3; dist = d; }
+		d = distance(z, a4); 
+		if (d < dist) { c = a4; dist = d; }
+		z = 2.0f * z - c * (2.0f - 1.0f);
+		n++;
+	}
+	return length(z) * pow(2.0f, float(-n));
+}
+
+// eye = ray.origin
+float SDF(float3 eye)
+{
+	float dst_ground = SDF_ground_plane(eye);
+	float dst_sphere = SDF_sphere(eye);
+	float dst_box = SDF_box(eye);
+	float dst_torus = SDF_torus(eye);
+	float dst_prism = SDF_prism(eye);
 
 	if (_SmoothBlend)
 	{
-		return min(dst_ground, smooth_min(smooth_min(smooth_min(dst_sphere, dst_torus, _BlendCoefficient), dst_box, _BlendCoefficient), dst_prism, _BlendCoefficient));
+		return min(dst_ground, SmoothMin(SmoothMin(SmoothMin(dst_sphere, dst_torus, _BlendCoefficient), dst_box, _BlendCoefficient), dst_prism, _BlendCoefficient));
 	}
 	else 
 	{
@@ -173,12 +245,14 @@ RayHit March(Ray ray)
 
 		dst = SDF(ray.origin);
 
+		// Ray has hit something
 		if (dst <= MIN_HIT_DISTANE)
 		{
 			float3 pointOnSurface = ray.origin + ray.direction * dst;
 			hit.position = pointOnSurface;
 			float3 normal = EstimateNormal(pointOnSurface - ray.direction * MIN_HIT_DISTANE);
 			hit.normal = normal;
+			hit.marchSteps = i;
 			hit.albedo = _Albedo;
 			hit.specular = float3(0.5f, 0.5f, 0.5f);
 			hit.distance = dst;
@@ -207,13 +281,14 @@ float3 Shade(inout Ray ray, RayHit hit)
 	}
 	else
 	{
+		//return float3(0.0f, 0.0f, 0.0f);
+
 		// In case of no collision, we render the sky box
 		// Erase the ray's energy - the sky doesn't reflect anything
 		ray.energy = 0.0f;
 		float theta = acos(ray.direction.y) / -PI;
 		float phi = atan2(ray.direction.x, -ray.direction.z) / -PI * 0.5f;
 		return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture, float2(phi, theta), 0).xyz * 1.0f;
-		//return float3(0.0f, 0.0f, 0.0f);
 	}
 }
 
@@ -251,4 +326,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 	RayHit hit = March(ray);
 	result += ray.energy * Shade(ray, hit);
 	Result[id.xy] = float4(result, 1);
+
+	//float rim = hit.marchSteps / 25.0f;
+	//Result[id.xy] = lerp(float4(result, 1.0f), 1, 0.0f) * rim;
 }
