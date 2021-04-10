@@ -31,11 +31,12 @@
 			uniform float _maxDistance;
 			uniform fixed4 _mainColor;
 			uniform fixed4 _secondaryColor;
-			uniform float4 _sphere;
-			uniform float4 _box;
+			uniform fixed4 _skyColor;
+			uniform float _scaleFactor;
 			uniform float3 _modInterval;
 			uniform float2 _shadowDistance;
 			uniform float _shadowIntensity;
+			uniform float _aoIntensity;
 			uniform float4x4 _globalTransform;
 			uniform float3 _globalPosition;
 			uniform float4x4 _iterationTransform;
@@ -43,6 +44,12 @@
 			uniform int sponge_iterations;
 			uniform float3 _modOffsetPos;
 			uniform int _infinite;
+			uniform int _useShadow;
+
+			uniform float _smoothRadius;
+
+			uniform float4x4 rotate45;
+			uniform int _shape;
 
             struct appdata
             {
@@ -70,14 +77,6 @@
                 return o;
             }
 
-			float BoxSphere(float3 pos)
-			{
-				float dst_sphere = sdSphere(pos - _sphere.xyz, _sphere.w);
-				float dst_box = sdRoundBox(pos - _box.xyz, _box.www, 1);
-				float combined = opSS(dst_sphere, dst_box, 1);
-				return combined;
-			}
-
 			float2 SDF(float3 pos)
 			{
 				if (_infinite == 1) 
@@ -86,17 +85,17 @@
 					pos.y = pMod(pos.y, _modInterval.y * _GlobalScale * 2);
 					pos.z = pMod(pos.z, _modInterval.z * _GlobalScale * 2);
 				}
+				
+				float2 dist;
 
-				float2 dist = sdMerger(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, 0, 1);
+				if (_shape == 0) {
+					dist = sdMerger(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor);
+				}
+				else if (_shape == 1) {
+					dist = sdMergerPyr(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor, rotate45);
+				}
+
 				return dist;
-
-				//float modX = pMod1(pos.x, _modInterval.x);
-				//float modY = pMod1(pos.y, _modInterval.y);
-				//float modZ = pMod1(pos.z, _modInterval.z);
-
-				//float dst_sphere = sdSphere(pos - _sphere.xyz, _sphere.w);
-				//float dst_box = sdBox(pos - _box.xyz, _box.www);
-				//return opS(dst_sphere, dst_box);
 			}
 
 			float3 getNormal(float3 pos)
@@ -108,42 +107,28 @@
 				return normalize(normal);
 			}
 
-			float hardShadows(float ro, float3 rd, float mint, float maxt)
+			float calculateShadows(in float3 ro, in float3 rd, float mint, float maxt, float k)
 			{
 				float res = 1.0;
 				float ph = 1e20;
-				for (float t = mint; t < maxt; )
+				for (float t = mint; t < maxt;)
 				{
-					float h = min(SDF(ro + rd * t).x, 0.0);
+					float h = SDF(ro + rd * t);
 					if (h < EPSILON)
-					{
 						return 0.0;
-					}
-					float y = h * h / (2.0*ph);
-					float d = sqrt(h*h - y * y);
-					res = min(res, 3*d / max(0.0, t - y));
+					float y = h * h / (2.0 * ph);
+					float d = sqrt(h * h - y * y);
+					res = min(res, k * d / max(0.0, t - y));
 					ph = h;
 					t += h;
 				}
 				return res;
 			}
 
-			float3 shading(float3 pos, float3 normal)
-			{
-				float result = (_lightColor * dot(normal, -_directionalLight) * 0.5 + 0.5) * _lightIntensity;
-				// Shadows
-				float shadow = hardShadows(pos, -_directionalLight, _shadowDistance.x, _shadowDistance.y) * 0.5 + 0.5;
-				shadow = max(0.0, pow(shadow, _shadowIntensity));
-				result *= shadow;
-				return result;
-			}
-
 			fixed4 raymarch(float3 ro, float3 rd, float depth) 
 			{
 				fixed4 result = fixed4(1, 1, 1, 1);
 				float distance_travelled = 0;
-				//int MAX_ITERATIONS = 1024;
-				//float EPSILON = 0.01;
 
 				for (int i = 0; i < MAX_ITERATIONS; i++) 
 				{
@@ -160,18 +145,29 @@
 					float2 dst = SDF(current_pos);
 					if (dst.x < EPSILON)
 					{
-						// Shading
+						float3 colorDepth;
+						float light;
+						float shadow;
+
 						float3 normal = getNormal(current_pos);
-						float light = max(0, dot(normal, -_directionalLight));
 
-						//result = fixed4(_mainColor.rgb * light, 1);
-						// Add secondary color
-						result = fixed4(_mainColor.rgb * (sponge_iterations - dst.y) * light / sponge_iterations + _secondaryColor.rgb * dst.y * light / sponge_iterations, 1);
+						float3 color = float3(_mainColor.rgb * (sponge_iterations - dst.y) / sponge_iterations + _secondaryColor.rgb * dst.y / sponge_iterations);
+						light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;
 
-						// TODO: fix Shadows 
-						//float3 s = shading(current_pos, normal);
-						//result = fixed4(_mainColor.rgb * s, 1);
+						if (_useShadow == 1) {
+							shadow = calculateShadows(current_pos, -_directionalLight, _shadowDistance.x, _shadowDistance.y, 3) * (1 - _shadowIntensity) + _shadowIntensity; // soft
+							shadow = pow(shadow, _shadowIntensity);
+						}
+						else {
+							shadow = 1;
+						}
 
+						float ao = (1 - 2 * i / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+
+						float3 colorLight = float3 (color * light * shadow * ao);
+						colorDepth = float3 (colorLight * (_maxDistance - distance_travelled) / (_maxDistance)+_skyColor.rgb * (distance_travelled) / (_maxDistance));
+
+						result = fixed4(colorLight, 1);
 						break;
 					}
 					distance_travelled += dst;
@@ -186,9 +182,6 @@
 				fixed3 col = tex2D(_MainTex, i.uv);
 				float3 rayDirection = normalize(i.ray.xyz);
 				float3 rayOrigin = _WorldSpaceCameraPos;
-
-				
-
 				fixed4 result = raymarch(rayOrigin, rayDirection, depth);
 				return fixed4(col * (1.0 - result.w) + result.xyz * result.w, 1.0);
             }
