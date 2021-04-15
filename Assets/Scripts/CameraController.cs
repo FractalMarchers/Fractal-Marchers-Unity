@@ -27,7 +27,6 @@ public class CameraController : MonoBehaviour
             var targetRotation = Quaternion.LookRotation(startPoint - transform.position);
 
             var delta = transform.rotation * Quaternion.Inverse(targetRotation);
-            Debug.Log(delta);
 
             // Smoothly rotate towards the target point.
             transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);

@@ -65,12 +65,19 @@ public class RaymarchCamera : SceneViewFilter
     public Text fps_text;
     public Dropdown shapeDropdown;
 
+
+    private bool reverseSmoothnessDirection = false;
+    private bool reverseScaleDirection = false;
+
     private void Start()
     {
         Application.targetFrameRate = 60;
         this._scaleFactor = scaleFactorSlider.value;
 
         _shape = shapeDropdown.value;
+
+        StartCoroutine(ChangeSmoothness());
+        StartCoroutine(ChangeScale());
     }
 
     public Material _raymarchMaterial
@@ -240,15 +247,79 @@ public class RaymarchCamera : SceneViewFilter
 
     private void Update()
     {
+        if (_smoothRadius >= smoothFactorSlider.maxValue)
+        {
+            reverseSmoothnessDirection = true;
+            //StartCoroutine(ChangeSmoothness());
+        }
+        else if (_smoothRadius <= smoothFactorSlider.minValue)
+        {
+            reverseSmoothnessDirection = false;
+            //StartCoroutine(ChangeSmoothness());
+        }
+
+        if (_scaleFactor >= scaleFactorSlider.maxValue)
+        {
+            reverseScaleDirection = true;
+            StartCoroutine(ChangeScale());
+        }
+        else if (_scaleFactor <= scaleFactorSlider.minValue)
+        {
+            reverseScaleDirection = false;
+            StartCoroutine(ChangeScale());
+        }
+
         if (Time.unscaledTime > _timer)
         {
             int fps = (int)(1f / Time.unscaledDeltaTime);
             fps_text.text = "FPS: " + fps.ToString();
             _timer = Time.unscaledTime + _fpsRefreshRate;
         }
+    }
 
-        //current = 1f / Time.unscaledDeltaTime;
-        //avg_frame_rate = (int)current;
-        //fps_text.text = "FPS: " + avg_frame_rate.ToString();
+    private IEnumerator ChangeSmoothness()
+    {
+        float v_start = smoothFactorSlider.minValue;
+        float v_end = smoothFactorSlider.maxValue;
+        if (reverseSmoothnessDirection)
+        {
+            v_start = smoothFactorSlider.maxValue;
+            v_end = smoothFactorSlider.minValue;
+        }
+        float duration = 10;
+        float elapsed = 0.0f;
+        while (elapsed < duration)
+        {
+            _smoothRadius = Mathf.Lerp(v_start, v_end, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        _smoothRadius = v_end;
+    }
+
+    private IEnumerator ChangeScale()
+    {
+        float v_start = scaleFactorSlider.minValue;
+        float v_end = scaleFactorSlider.maxValue;
+        if (reverseScaleDirection)
+        {
+            v_start = scaleFactorSlider.maxValue;
+            v_end = scaleFactorSlider.minValue;
+        }
+        float duration = 10;
+        float elapsed = 0.0f;
+        while (elapsed < duration)
+        {
+            _scaleFactor = Mathf.Lerp(v_start, v_end, elapsed / duration);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        _scaleFactor = v_end;
+    }
+
+    private IEnumerator Delay(float delay)
+    {
+        Debug.Log("Delay " + delay);
+        yield return new WaitForSeconds(delay);
     }
 }
