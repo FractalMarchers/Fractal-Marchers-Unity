@@ -14,9 +14,9 @@ static const float Kd = 0.3f;	// Diffuse coefficient
 float2 _PixelOffset;
 float3 camera_position;
 float3 _Albedo;
-static const int NUMBER_OF_STEPS = 64;
+static const int NUMBER_OF_STEPS = 1024;
 static const float MIN_HIT_DISTANE = 0.001f;	// epsilon
-static const float MAX_MARCH_DISTANCE = 100.0f;
+static const float MAX_MARCH_DISTANCE = 1024.0f;
 int _NumberOfReflections;
 float4 _Sphere;
 float3 _Ground;
@@ -254,7 +254,7 @@ RayHit March(Ray ray)
 			hit.normal = normal;
 			hit.marchSteps = i;
 			hit.albedo = _Albedo;
-			hit.specular = float3(0.5f, 0.5f, 0.5f);
+			hit.specular = float3(0.65f, 0.65f, 0.65f);
 			hit.distance = dst;
 			break;
 		}
@@ -287,7 +287,7 @@ float3 Shade(inout Ray ray, RayHit hit)
 		// Erase the ray's energy - the sky doesn't reflect anything
 		ray.energy = 0.0f;
 		float theta = acos(ray.direction.y) / -PI;
-		float phi = atan2(ray.direction.x, -ray.direction.z) / -PI * 0.5f;
+		float phi = atan2(ray.direction.x, -ray.direction.z) / -PI * 0.0f;
 		return _SkyboxTexture.SampleLevel(sampler_SkyboxTexture, float2(phi, theta), 0).xyz * 1.0f;
 	}
 }

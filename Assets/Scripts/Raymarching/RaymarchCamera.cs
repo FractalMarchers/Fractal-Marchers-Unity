@@ -48,6 +48,7 @@ public class RaymarchCamera : SceneViewFilter
     public Vector3 _iterationOffsetRot;
     public float _GlobalScale;
     public int sponge_iterations;
+    public bool _pause = false;
     public float _scaleFactor = 1;
     public float _smoothRadius = 0;
     public Vector3 _modOffsetPos;
@@ -69,6 +70,8 @@ public class RaymarchCamera : SceneViewFilter
     private bool reverseSmoothnessDirection = false;
     private bool reverseScaleDirection = false;
 
+    private IEnumerator smoothCoroutine, scaleCoroutine;
+
     private void Start()
     {
         Application.targetFrameRate = 60;
@@ -76,8 +79,11 @@ public class RaymarchCamera : SceneViewFilter
 
         _shape = shapeDropdown.value;
 
-        StartCoroutine(ChangeSmoothness());
-        StartCoroutine(ChangeScale());
+        smoothCoroutine = ChangeSmoothness();
+        StartCoroutine(smoothCoroutine);
+
+        scaleCoroutine = ChangeScale();
+        StartCoroutine(scaleCoroutine);
     }
 
     public Material _raymarchMaterial
@@ -245,29 +251,48 @@ public class RaymarchCamera : SceneViewFilter
         this._shape = shapeDropdown.value;
     }
 
+    public void TogglePause()
+    {
+        _pause = !_pause;
+        if (!_pause)
+        {
+            smoothCoroutine = ChangeSmoothness();
+            scaleCoroutine = ChangeScale();
+            StartCoroutine(smoothCoroutine);
+            StartCoroutine(scaleCoroutine);
+        }
+        else
+        {
+            StopCoroutine(scaleCoroutine);
+            StopCoroutine(smoothCoroutine);
+        }
+    }
+
     private void Update()
     {
-        if (_smoothRadius >= smoothFactorSlider.maxValue)
+        if (!_pause && _smoothRadius >= smoothFactorSlider.maxValue)
         {
             reverseSmoothnessDirection = true;
-            //StartCoroutine(ChangeSmoothness());
+            StartCoroutine(ChangeSmoothness());
         }
-        else if (_smoothRadius <= smoothFactorSlider.minValue)
+        else if (!_pause && _smoothRadius <= smoothFactorSlider.minValue)
         {
             reverseSmoothnessDirection = false;
-            //StartCoroutine(ChangeSmoothness());
+            StartCoroutine(ChangeSmoothness());
         }
 
-        if (_scaleFactor >= scaleFactorSlider.maxValue)
+        if (!_pause && _scaleFactor >= scaleFactorSlider.maxValue)
         {
             reverseScaleDirection = true;
             StartCoroutine(ChangeScale());
         }
-        else if (_scaleFactor <= scaleFactorSlider.minValue)
+        else if (!_pause && _scaleFactor <= scaleFactorSlider.minValue)
         {
             reverseScaleDirection = false;
             StartCoroutine(ChangeScale());
         }
+
+        
 
         if (Time.unscaledTime > _timer)
         {
@@ -321,5 +346,11 @@ public class RaymarchCamera : SceneViewFilter
     {
         Debug.Log("Delay " + delay);
         yield return new WaitForSeconds(delay);
+    }
+
+    public void Quit()
+    {
+        Debug.Log("QUit");
+        Application.Quit();
     }
 }

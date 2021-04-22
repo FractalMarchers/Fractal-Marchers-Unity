@@ -47,16 +47,6 @@ float opI(float d1, float d2)
 	return max(d1, d2);
 }
 
-// Mod Position Axis
-//float pMod1 (inout float p, float size)
-//{
-//	float halfsize = size * 0.5;
-//	float c = floor((p+halfsize)/size);
-//	p = fmod(p+halfsize,size)-halfsize;
-//	p = fmod(-p+halfsize,size)-halfsize;
-//	return c;
-//}
-
 // Mod function for infinite fractal
 float pMod(float p, float size)
 {
