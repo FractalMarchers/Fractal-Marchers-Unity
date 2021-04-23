@@ -31,6 +31,7 @@
 			uniform float _maxDistance;
 			uniform fixed4 _mainColor;
 			uniform fixed4 _secondaryColor;
+			uniform fixed4 _marbleColor;
 			uniform fixed4 _skyColor;
 			uniform float _scaleFactor;
 			uniform float3 _modInterval;
@@ -162,7 +163,7 @@
 
 						// Hit marble
 						if (dst.y == 100) {
-							float3 marble_color = float3(0.0f, 0.0f, 0.0f);
+							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
 							float temp_dst_travelled = 0.0f;
 							float3 rd_marble = normalize(reflect(rd, normal));
@@ -175,12 +176,9 @@
 								}
 								float3 current_pos_temp = current_pos + rd_marble * temp_dst_travelled;
 								float2 dst_marble = SDF(current_pos_temp);
-								// collided with fractal
-								//if (dst_temp.x < EPSILON && temp_dst_travelled == 0) {
-								//	return temp_result;
-								//}
+								
 								if (dst_marble.x < EPSILON) {
-									marble_color = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
+									marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
 									light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
 									
 									if (_specular == 1) {
@@ -189,9 +187,9 @@
 									}
 
 									float temp_ao = (1 - 2 * i / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
-									float3 marble_colorLight = float3(marble_color * light * 1 * temp_ao);
+									float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao);
 									
-									marble_colorLight = saturate(marble_colorLight + specular);
+									marble_colorLight = saturate(marble_colorLight + specular + _marbleColor);
 
 									colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
 									marble_result = fixed4(marble_colorLight, 1.0f);

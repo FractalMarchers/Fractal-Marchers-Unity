@@ -669,7 +669,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 'FPS: 4'
+  m_Text: 'FPS: 7'
 --- !u!222 &231841880
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -912,12 +912,13 @@ MonoBehaviour:
   _shadowIntensity: 0.3
   _aoIntensity: 1
   _shadowDistance: {x: 0.1, y: 256}
-  Ks: 10
+  Ks: 40
   _specular: 1
   _mainColor: {r: 0, g: 1, b: 1, a: 1}
   _secondaryColor: {r: 0, g: 0.27430224, b: 1, a: 1}
   _skyColor: {r: 1, g: 1, b: 1, a: 1}
   _lightColor: {r: 1, g: 1, b: 1, a: 1}
+  _marbleColor: {r: 1, g: 0, b: 1, a: 1}
   _globalTransform:
     e00: 1
     e01: 0

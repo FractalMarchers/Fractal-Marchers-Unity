@@ -42,6 +42,7 @@ public class RaymarchCamera : SceneViewFilter
     public Color _secondaryColor;
     public Color _skyColor;
     public Color _lightColor;
+    public Color _marbleColor;
 
     [HideInInspector]
     public Matrix4x4 _globalTransform;
@@ -146,6 +147,7 @@ public class RaymarchCamera : SceneViewFilter
         _raymarchMat.SetColor("_skyColor", _skyColor);
         _originalSecondaryColor = _secondaryColor;
         _raymarchMat.SetColor("_lightColor", _lightColor);
+        _raymarchMat.SetColor("_marbleColor", _marbleColor);
         _raymarchMat.SetFloat("_lightIntensity", _lightIntensity);
         _raymarchMat.SetFloat("_shadowIntensity", _shadowIntensity);
         _raymarchMat.SetFloat("_aoIntensity", _aoIntensity);
