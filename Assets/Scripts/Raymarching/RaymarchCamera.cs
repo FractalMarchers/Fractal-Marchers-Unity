@@ -11,6 +11,8 @@ public class RaymarchCamera : SceneViewFilter
     private Shader _shader;
     private Material _raymarchMat;
     private Camera _cam;
+    public GameObject marble;
+    public GameObject dummy;
 
     public Transform _directionalLight;
     public Slider scaleFactorSlider;
@@ -30,6 +32,10 @@ public class RaymarchCamera : SceneViewFilter
     [Range(0, 1)]
     public float _aoIntensity;
     public Vector2 _shadowDistance;
+    [Range(2, 40)]
+    public int Ks = 20;
+    public bool _specular = true;
+
 
     [Header("Colors")]
     public Color _mainColor;
@@ -84,6 +90,8 @@ public class RaymarchCamera : SceneViewFilter
 
         scaleCoroutine = ChangeScale();
         StartCoroutine(scaleCoroutine);
+
+
     }
 
     public Material _raymarchMaterial
@@ -119,6 +127,8 @@ public class RaymarchCamera : SceneViewFilter
             return;
         }
 
+        //dummy.GetComponent<MeshRenderer>().material = _raymarchMat;
+
         _raymarchMat.SetMatrix("_CamFrustum", CamFrustum(_camera));
         _raymarchMat.SetMatrix("_CamToWorld", _camera.cameraToWorldMatrix);
         _raymarchMat.SetFloat("_maxDistance", _maxDistance);
@@ -153,8 +163,19 @@ public class RaymarchCamera : SceneViewFilter
             _raymarchMaterial.SetInt("_useShadow", 1);
         else
             _raymarchMaterial.SetInt("_useShadow", 0);
+        if (_specular)
+        {
+            _raymarchMaterial.SetInt("_specular", 1);
+        }
+        else
+        {
+            _raymarchMaterial.SetInt("_specular", 0);
+        }
+        _raymarchMaterial.SetInt("_Ks", Ks);
 
         _raymarchMaterial.SetInt("_shape", _shape);
+
+        _raymarchMat.SetVector("_marblePos", marble.transform.position);
 
         // Test
         // Construct a Model Matrix for the global transform

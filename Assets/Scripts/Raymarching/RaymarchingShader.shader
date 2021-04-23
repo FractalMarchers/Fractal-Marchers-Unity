@@ -45,7 +45,9 @@
 			uniform float3 _modOffsetPos;
 			uniform int _infinite;
 			uniform int _useShadow;
-
+			uniform int _specular;
+			uniform int _Ks;
+			uniform float3 _marblePos;
 			uniform float _smoothRadius;
 
 			uniform float4x4 rotate45;
@@ -79,6 +81,8 @@
 
 			float2 SDF(float3 pos)
 			{
+				float2 dist_marble = sdMarble(pos, _marblePos);
+
 				if (_infinite == 1) 
 				{
 					pos.x = pMod(pos.x, _modInterval.x * _GlobalScale * 2);
@@ -95,7 +99,12 @@
 					dist = sdMergerPyr(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor, rotate45);
 				}
 
-				return dist;
+				if (dist.x < dist_marble.x) {
+					return dist;
+				}
+				else {
+					return dist_marble;
+				}
 			}
 
 			float3 getNormal(float3 pos)
@@ -135,9 +144,9 @@
 					if (distance_travelled > _maxDistance || distance_travelled >= depth) 
 					{
 						// Render the environment (skybox)
-						//float theta = acos(rd.y) / -PI;
-						//float phi = atan2(rd.x, -rd.z) / -PI * 0.5;
-						//
+						float theta = acos(rd.y) / -3.14f;
+						float phi = atan2(rd.x, -rd.z) / -3.14f * 0.5f;
+						
 						result = fixed4(rd, 0);
 						break;
 					}
@@ -150,6 +159,49 @@
 						float shadow;
 
 						float3 normal = getNormal(current_pos);
+
+						// Hit marble
+						if (dst.y == 100) {
+							float3 marble_color = float3(0.0f, 0.0f, 0.0f);
+							fixed4 marble_result = fixed4(1, 1, 1, 1);
+							float temp_dst_travelled = 0.0f;
+							float3 rd_marble = normalize(reflect(rd, normal));
+							float3 specular = float3(0.0f, 0.0f, 0.0f);
+
+							for (int j = 0; j < MAX_ITERATIONS; j++) {
+								if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
+									marble_result = fixed4(rd_marble, 0);
+									break;
+								}
+								float3 current_pos_temp = current_pos + rd_marble * temp_dst_travelled;
+								float2 dst_marble = SDF(current_pos_temp);
+								// collided with fractal
+								//if (dst_temp.x < EPSILON && temp_dst_travelled == 0) {
+								//	return temp_result;
+								//}
+								if (dst_marble.x < EPSILON) {
+									marble_color = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
+									light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
+									
+									if (_specular == 1) {
+										float3 ref = normalize(2 * _lightIntensity * normal - _directionalLight); // specular
+										specular = pow(saturate(dot(ref, rd_marble)), _Ks);
+									}
+
+									float temp_ao = (1 - 2 * i / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+									float3 marble_colorLight = float3(marble_color * light * 1 * temp_ao);
+									
+									marble_colorLight = saturate(marble_colorLight + specular);
+
+									colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
+									marble_result = fixed4(marble_colorLight, 1.0f);
+								}
+								temp_dst_travelled += dst_marble;
+							}
+
+							distance_travelled += dst.x;
+							return marble_result;
+						}
 
 						float3 color = float3(_mainColor.rgb * (sponge_iterations - dst.y) / sponge_iterations + _secondaryColor.rgb * dst.y / sponge_iterations);
 						light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;
@@ -170,7 +222,7 @@
 						result = fixed4(colorLight, 1);
 						break;
 					}
-					distance_travelled += dst;
+					distance_travelled += dst.x;
 				}
 				return result;
 			}
