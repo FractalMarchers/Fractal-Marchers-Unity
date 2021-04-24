@@ -44,6 +44,11 @@ public class RaymarchCamera : SceneViewFilter
     public Color _lightColor;
     public Color _marbleColor;
 
+    public Color[] Maincolors = new Color[5];
+    public Color[] Secondarycolors = new Color[5];
+    private int colorIndex;
+    private float t = 0.0f;
+
     [HideInInspector]
     public Matrix4x4 _globalTransform;
     public Vector3 _GlobalRotation;
@@ -76,6 +81,8 @@ public class RaymarchCamera : SceneViewFilter
 
     private bool reverseSmoothnessDirection = false;
     private bool reverseScaleDirection = false;
+
+    private Vector3 _marbleDirection = Vector3.forward + Vector3.left;
 
     private IEnumerator smoothCoroutine, scaleCoroutine;
 
@@ -127,9 +134,8 @@ public class RaymarchCamera : SceneViewFilter
             Graphics.Blit(source, destination);
             return;
         }
-
-        //dummy.GetComponent<MeshRenderer>().material = _raymarchMat;
-
+        
+        _raymarchMat.SetVector("_marblePos", marble.transform.position);
         _raymarchMat.SetMatrix("_CamFrustum", CamFrustum(_camera));
         _raymarchMat.SetMatrix("_CamToWorld", _camera.cameraToWorldMatrix);
         _raymarchMat.SetFloat("_maxDistance", _maxDistance);
@@ -176,10 +182,7 @@ public class RaymarchCamera : SceneViewFilter
         _raymarchMaterial.SetInt("_Ks", Ks);
 
         _raymarchMaterial.SetInt("_shape", _shape);
-
-        _raymarchMat.SetVector("_marblePos", marble.transform.position);
-
-        // Test
+        
         // Construct a Model Matrix for the global transform
         _globalTransform = Matrix4x4.TRS(
         _globalPosition,
@@ -205,6 +208,7 @@ public class RaymarchCamera : SceneViewFilter
         // Send the matrix to our shader
         _raymarchMaterial.SetMatrix("_iterationTransform", _iterationTransform.inverse);
         // Test
+        _raymarchMat.SetVector("_marbleDirection", _marbleDirection);
 
 
         RenderTexture.active = destination;
@@ -293,6 +297,25 @@ public class RaymarchCamera : SceneViewFilter
 
     private void Update()
     {
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            Quit();
+        }
+
+        //marble.transform.Translate(_marbleDirection * 0.25f);
+
+        _mainColor = Color.Lerp(_mainColor, Maincolors[colorIndex], 0.5f * Time.deltaTime);
+        _secondaryColor = Color.Lerp(_secondaryColor, Secondarycolors[colorIndex], 0.5f * Time.deltaTime);
+        t = Mathf.Lerp(t, 1f, 0.5f * Time.deltaTime);
+        if (t > 0.9f)
+        {
+            t = 0.0f;
+            colorIndex += 1;
+            colorIndex = (colorIndex >= Maincolors.Length) ? 0 : colorIndex;
+        }
+
+
         if (!_pause && _smoothRadius >= smoothFactorSlider.maxValue)
         {
             reverseSmoothnessDirection = true;

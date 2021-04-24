@@ -669,7 +669,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 'FPS: 7'
+  m_Text: 'FPS: 0'
 --- !u!222 &231841880
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -900,7 +900,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   _shader: {fileID: 4800000, guid: e8014d069e852244bb0c7f03b197710c, type: 3}
   marble: {fileID: 479107970}
-  dummy: {fileID: 1203294230}
+  dummy: {fileID: 0}
   _directionalLight: {fileID: 1437763361}
   scaleFactorSlider: {fileID: 1640503578}
   smoothFactorSlider: {fileID: 2097801550}
@@ -912,13 +912,25 @@ MonoBehaviour:
   _shadowIntensity: 0.3
   _aoIntensity: 1
   _shadowDistance: {x: 0.1, y: 256}
-  Ks: 40
+  Ks: 21
   _specular: 1
-  _mainColor: {r: 0, g: 1, b: 1, a: 1}
-  _secondaryColor: {r: 0, g: 0.27430224, b: 1, a: 1}
+  _mainColor: {r: 0.04601472, g: 0.97524595, b: 0.9955099, a: 0.9999999}
+  _secondaryColor: {r: 0.16367196, g: 0.35070816, b: 0.97667736, a: 0.9999999}
   _skyColor: {r: 1, g: 1, b: 1, a: 1}
   _lightColor: {r: 1, g: 1, b: 1, a: 1}
-  _marbleColor: {r: 1, g: 0, b: 1, a: 1}
+  _marbleColor: {r: 0, g: 0, b: 0, a: 1}
+  Maincolors:
+  - {r: 0, g: 1, b: 1, a: 1}
+  - {r: 1, g: 0.4481132, b: 0.9211591, a: 1}
+  - {r: 0.3932703, g: 1, b: 0.3820755, a: 1}
+  - {r: 1, g: 0.92430794, b: 0.3160377, a: 1}
+  - {r: 1, g: 0.3726415, b: 0.3726415, a: 1}
+  Secondarycolors:
+  - {r: 0.16509432, g: 0.32074735, b: 1, a: 1}
+  - {r: 0.109803915, g: 1, b: 0.5052367, a: 1}
+  - {r: 0.4909573, g: 0.04903879, b: 0.5471698, a: 1}
+  - {r: 1, g: 0.10849059, b: 0.15910016, a: 1}
+  - {r: 0.990566, g: 0.9861739, b: 0.3317462, a: 1}
   _globalTransform:
     e00: 1
     e01: 0
@@ -960,8 +972,8 @@ MonoBehaviour:
   _GlobalScale: 150
   sponge_iterations: 3
   _pause: 0
-  _scaleFactor: 0.4
-  _smoothRadius: 0
+  _scaleFactor: 0.53506655
+  _smoothRadius: 4.2208295
   _modOffsetPos: {x: 1, y: 1, z: 1}
   _infinite: 1
   _useShadow: 0
@@ -1164,7 +1176,7 @@ Rigidbody:
   m_Drag: 0
   m_AngularDrag: 0.05
   m_UseGravity: 0
-  m_IsKinematic: 1
+  m_IsKinematic: 0
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
@@ -1472,7 +1484,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &765276496
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1833,76 +1845,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1025589846}
   m_CullTransparentMesh: 0
---- !u!1 &1203294230
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1203294232}
-  - component: {fileID: 1203294231}
-  m_Layer: 0
-  m_Name: dummy
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!23 &1203294231
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1203294230}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 0
-  m_DynamicOccludee: 1
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 0}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
---- !u!4 &1203294232
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1203294230}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_RootOrder: 4
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1258035659
 GameObject:
   m_ObjectHideFlags: 0

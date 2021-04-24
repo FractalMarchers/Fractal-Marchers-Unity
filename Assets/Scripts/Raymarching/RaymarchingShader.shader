@@ -51,6 +51,8 @@
 			uniform float3 _marblePos;
 			uniform float _smoothRadius;
 
+			uniform float3 _marbleDirection;
+
 			uniform float4x4 rotate45;
 			uniform int _shape;
 
@@ -162,6 +164,7 @@
 						float3 normal = getNormal(current_pos);
 
 						// Hit marble
+						// Again raymarch from marble to get reflection
 						if (dst.y == 100) {
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
@@ -174,9 +177,9 @@
 									marble_result = fixed4(rd_marble, 0);
 									break;
 								}
-								float3 current_pos_temp = current_pos + rd_marble * temp_dst_travelled;
-								float2 dst_marble = SDF(current_pos_temp);
-								
+								float3 current_pos_marble = current_pos + rd_marble * temp_dst_travelled;
+								float2 dst_marble = SDF(current_pos_marble);
+
 								if (dst_marble.x < EPSILON) {
 									marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
 									light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
@@ -190,9 +193,15 @@
 									float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao);
 									
 									marble_colorLight = saturate(marble_colorLight + specular + _marbleColor);
-
 									colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
 									marble_result = fixed4(marble_colorLight, 1.0f);
+								}
+								// collision with fractal
+								if (dst_marble.x < EPSILON && temp_dst_travelled <= EPSILON) {
+									marble_result = fixed4(0.0f, 0.0f, 0.0f, 1.0f);
+									//float3 collision_normal = getNormal(current_pos_marble);
+									//_marbleDirection = normalize(reflect(_marbleDirection, collision_normal));
+									//_marbleDirection = float3(0, 0, 1);
 								}
 								temp_dst_travelled += dst_marble;
 							}
