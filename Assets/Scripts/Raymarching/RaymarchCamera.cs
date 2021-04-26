@@ -12,7 +12,7 @@ public class RaymarchCamera : SceneViewFilter
     private Material _raymarchMat;
     private Camera _cam;
     public GameObject marble;
-    public GameObject dummy;
+    private bool firstTime = true;
 
     public Transform _directionalLight;
     public Slider scaleFactorSlider;
@@ -36,13 +36,17 @@ public class RaymarchCamera : SceneViewFilter
     public int Ks = 20;
     public bool _specular = true;
 
+    [Header("Marble Parameters")]
+    public bool _renderMarble;
+    public Color _marbleColor;
+    public bool _marbleReflection = false;
+    public float _marbleRadius = 2.0f;
 
     [Header("Colors")]
     public Color _mainColor;
     public Color _secondaryColor;
     public Color _skyColor;
     public Color _lightColor;
-    public Color _marbleColor;
 
     public Color[] Maincolors = new Color[5];
     public Color[] Secondarycolors = new Color[5];
@@ -76,8 +80,9 @@ public class RaymarchCamera : SceneViewFilter
     public int _fpsRefreshRate = 1;
     private float _timer = 0;
     public Text fps_text;
-    public Dropdown shapeDropdown;
-
+    public GameObject reflectionToggle;
+    public GameObject specularToggle;
+    public Slider KsSlider;
 
     private bool reverseSmoothnessDirection = false;
     private bool reverseScaleDirection = false;
@@ -90,16 +95,16 @@ public class RaymarchCamera : SceneViewFilter
     {
         Application.targetFrameRate = 60;
         this._scaleFactor = scaleFactorSlider.value;
-
-        _shape = shapeDropdown.value;
-
+        
         smoothCoroutine = ChangeSmoothness();
         StartCoroutine(smoothCoroutine);
 
         scaleCoroutine = ChangeScale();
         StartCoroutine(scaleCoroutine);
 
-
+        reflectionToggle.SetActive(_renderMarble);
+        specularToggle.SetActive(_renderMarble);
+        KsSlider.transform.gameObject.SetActive(_renderMarble);
     }
 
     public Material _raymarchMaterial
@@ -134,7 +139,7 @@ public class RaymarchCamera : SceneViewFilter
             Graphics.Blit(source, destination);
             return;
         }
-        
+
         _raymarchMat.SetVector("_marblePos", marble.transform.position);
         _raymarchMat.SetMatrix("_CamFrustum", CamFrustum(_camera));
         _raymarchMat.SetMatrix("_CamToWorld", _camera.cameraToWorldMatrix);
@@ -153,6 +158,16 @@ public class RaymarchCamera : SceneViewFilter
         _raymarchMat.SetColor("_skyColor", _skyColor);
         _originalSecondaryColor = _secondaryColor;
         _raymarchMat.SetColor("_lightColor", _lightColor);
+
+        if (_renderMarble)
+        {
+            _raymarchMat.SetInt("_renderMarble", 1);
+        }
+        else
+        {
+            _raymarchMat.SetInt("_renderMarble", 0);
+        }
+
         _raymarchMat.SetColor("_marbleColor", _marbleColor);
         _raymarchMat.SetFloat("_lightIntensity", _lightIntensity);
         _raymarchMat.SetFloat("_shadowIntensity", _shadowIntensity);
@@ -181,6 +196,22 @@ public class RaymarchCamera : SceneViewFilter
         }
         _raymarchMaterial.SetInt("_Ks", Ks);
 
+        if (_marbleReflection)
+        {
+            _raymarchMaterial.SetInt("_marbleReflection", 1);
+        }
+        else
+        {
+            _raymarchMaterial.SetInt("_marbleReflection", 0);
+        }
+
+        if (firstTime)
+        {
+            _raymarchMat.SetFloat("_marbleRadius", _marbleRadius);
+            //firstTime = false;
+        }
+
+
         _raymarchMaterial.SetInt("_shape", _shape);
         
         // Construct a Model Matrix for the global transform
@@ -207,8 +238,6 @@ public class RaymarchCamera : SceneViewFilter
             Vector3.one);
         // Send the matrix to our shader
         _raymarchMaterial.SetMatrix("_iterationTransform", _iterationTransform.inverse);
-        // Test
-        _raymarchMat.SetVector("_marbleDirection", _marbleDirection);
 
 
         RenderTexture.active = destination;
@@ -254,6 +283,13 @@ public class RaymarchCamera : SceneViewFilter
         return frustum;
     }
 
+    public void ToggleMarble()
+    {
+        _renderMarble = !_renderMarble;
+        reflectionToggle.SetActive(_renderMarble);
+        specularToggle.SetActive(_renderMarble);
+        KsSlider.transform.gameObject.SetActive(_renderMarble && _specular);
+    }
 
     public void ToggleInfiniteRender()
     {
@@ -273,30 +309,25 @@ public class RaymarchCamera : SceneViewFilter
         this._smoothRadius = smoothFactorSlider.value;
     }
 
-    public void ChangeShape()
+    public void SetKs()
     {
-        this._shape = shapeDropdown.value;
+        this.Ks = (int)KsSlider.value;
     }
 
-    public void TogglePause()
+    public void ToggleMarbleReflection()
     {
-        _pause = !_pause;
-        if (!_pause)
-        {
-            smoothCoroutine = ChangeSmoothness();
-            scaleCoroutine = ChangeScale();
-            StartCoroutine(smoothCoroutine);
-            StartCoroutine(scaleCoroutine);
-        }
-        else
-        {
-            StopCoroutine(scaleCoroutine);
-            StopCoroutine(smoothCoroutine);
-        }
+        _marbleReflection = !_marbleReflection;
+    }
+
+    public void ToggleSpecularReflection()
+    {
+        _specular = !_specular;
+        KsSlider.transform.gameObject.SetActive(_specular);
     }
 
     private void Update()
     {
+        //Debug.Log(_marbleRadius);
 
         if (Input.GetKeyDown(KeyCode.Escape))
         {
@@ -390,13 +421,11 @@ public class RaymarchCamera : SceneViewFilter
 
     private IEnumerator Delay(float delay)
     {
-        Debug.Log("Delay " + delay);
         yield return new WaitForSeconds(delay);
     }
 
     public void Quit()
     {
-        Debug.Log("QUit");
         Application.Quit();
     }
 }

@@ -204,9 +204,10 @@ float2 sdMergerPyr(in float3 p, float b, int _iterations, float3 _modOffsetPos, 
 }
 
 // Sphere (Marble)
-float2 sdMarble(float3 p, float3 c) 
+float2 sdMarble(float3 p, float3 c, float marbleRadius) 
 {
-	c.z += 10.0f;
-	float radius = 2.0f;
-	return float2(distance(p, c) - radius, 100);
+	c.z += 15.0f;
+	//float radius = 2.0f;
+	return float2(distance(p, c) - marbleRadius, 100);
+	// return 100 as second value to know that it is coming from the marble
 }

@@ -4,6 +4,7 @@
     {
         _MainTex ("Texture", 2D) = "white" {}
     }
+
     SubShader
     {
         // No culling or depth
@@ -11,6 +12,7 @@
 
         Pass
         {
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -20,7 +22,6 @@
 			#include "SignedDistanceFunctions.cginc"
 
 			sampler2D _MainTex;
-
 			uniform sampler2D _CameraDepthTexture;
 			uniform float4x4 _CamFrustum, _CamToWorld;
 			uniform float EPSILON;
@@ -46,16 +47,20 @@
 			uniform float3 _modOffsetPos;
 			uniform int _infinite;
 			uniform int _useShadow;
+			uniform int _renderMarble;
 			uniform int _specular;
 			uniform int _Ks;
 			uniform float3 _marblePos;
 			uniform float _smoothRadius;
 
+			uniform float _marbleRadius = 2.0f;
 			uniform float3 _marbleDirection;
+			uniform int _marbleReflection;
+
 
 			uniform float4x4 rotate45;
 			uniform int _shape;
-
+			
             struct appdata
             {
                 float4 vertex : POSITION;
@@ -84,7 +89,11 @@
 
 			float2 SDF(float3 pos)
 			{
-				float2 dist_marble = sdMarble(pos, _marblePos);
+				float2 dist_marble = 100.0f;
+				if (_renderMarble == 1) {
+					dist_marble = sdMarble(pos, _marblePos, _marbleRadius);
+				}
+
 
 				if (_infinite == 1) 
 				{
@@ -100,6 +109,10 @@
 				}
 				else if (_shape == 1) {
 					dist = sdMergerPyr(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor, rotate45);
+				}
+
+				if (_renderMarble == 0) {
+					return dist;
 				}
 
 				if (dist.x < dist_marble.x) {
@@ -166,11 +179,25 @@
 						// Hit marble
 						// Again raymarch from marble to get reflection
 						if (dst.y == 100) {
+
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
 							float temp_dst_travelled = 0.0f;
 							float3 rd_marble = normalize(reflect(rd, normal));
 							float3 specular = float3(0.0f, 0.0f, 0.0f);
+
+							if (_marbleReflection == 0) {
+								light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
+								if (_specular == 1) {
+									float3 ref = normalize(2 * _lightIntensity * normal - _directionalLight); // specular
+									specular = pow(saturate(dot(ref, rd_marble)), _Ks);
+								}
+								float temp_ao = (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+								float3 marble_colorLight = float3(light * 1 * temp_ao * _marbleColor.rgb);
+								marble_colorLight = saturate(marble_colorLight + specular);
+								marble_result = fixed4(marble_colorLight, 1.0f);
+								return marble_result;
+							}
 
 							for (int j = 0; j < MAX_ITERATIONS; j++) {
 								if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
@@ -189,19 +216,15 @@
 										specular = pow(saturate(dot(ref, rd_marble)), _Ks);
 									}
 
-									float temp_ao = (1 - 2 * i / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
-									float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao);
-									
-									marble_colorLight = saturate(marble_colorLight + specular + _marbleColor);
+									float temp_ao = (1 - 2 * j / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+									float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao * _marbleColor);
+									marble_colorLight = saturate(marble_colorLight + specular);
 									colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
 									marble_result = fixed4(marble_colorLight, 1.0f);
 								}
 								// collision with fractal
 								if (dst_marble.x < EPSILON && temp_dst_travelled <= EPSILON) {
-									marble_result = fixed4(0.0f, 0.0f, 0.0f, 1.0f);
-									//float3 collision_normal = getNormal(current_pos_marble);
-									//_marbleDirection = normalize(reflect(_marbleDirection, collision_normal));
-									//_marbleDirection = float3(0, 0, 1);
+									//_marbleRadius = _marbleRadius / 2.0f;
 								}
 								temp_dst_travelled += dst_marble;
 							}
