@@ -40,6 +40,7 @@ public class RaymarchCamera : SceneViewFilter
     public bool _renderMarble;
     public Color _marbleColor;
     public bool _marbleReflection = false;
+    public bool _marbleRefraction = true;
     public float _marbleRadius = 2.0f;
 
     [Header("Colors")]
@@ -203,6 +204,15 @@ public class RaymarchCamera : SceneViewFilter
         else
         {
             _raymarchMaterial.SetInt("_marbleReflection", 0);
+        }
+
+        if (_marbleRefraction)
+        {
+            _raymarchMat.SetInt("_marbleRefraction", 1);
+        }
+        else
+        {
+            _raymarchMat.SetInt("_marbleRefraction", 0);
         }
 
         if (firstTime)

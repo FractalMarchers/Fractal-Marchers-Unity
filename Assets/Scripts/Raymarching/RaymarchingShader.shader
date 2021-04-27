@@ -56,7 +56,7 @@
 			uniform float _marbleRadius = 2.0f;
 			uniform float3 _marbleDirection;
 			uniform int _marbleReflection;
-
+			uniform int _marbleRefraction;
 
 			uniform float4x4 rotate45;
 			uniform int _shape;
@@ -104,12 +104,7 @@
 				
 				float2 dist;
 
-				if (_shape == 0) {
-					dist = sdMerger(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor);
-				}
-				else if (_shape == 1) {
-					dist = sdMergerPyr(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor, rotate45);
-				}
+				dist = sdMerger(pos, _GlobalScale, sponge_iterations, _modOffsetPos, _iterationTransform, _globalTransform, _smoothRadius, _scaleFactor);
 
 				if (_renderMarble == 0) {
 					return dist;
@@ -183,9 +178,10 @@
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
 							float temp_dst_travelled = 0.0f;
-							float3 rd_marble = normalize(reflect(rd, normal));
+							float3 rd_marble = normalize(reflect(rd, normal));	// Reflct the ray to get new direction
 							float3 specular = float3(0.0f, 0.0f, 0.0f);
 
+							// No reflections
 							if (_marbleReflection == 0) {
 								light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
 								if (_specular == 1) {
@@ -196,57 +192,86 @@
 								float3 marble_colorLight = float3(light * 1 * temp_ao * _marbleColor.rgb);
 								marble_colorLight = saturate(marble_colorLight + specular);
 								marble_result = fixed4(marble_colorLight, 1.0f);
-								return marble_result;
+								//return marble_result;
 							}
 
-							for (int j = 0; j < MAX_ITERATIONS; j++) {
-								if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
-									marble_result = fixed4(rd_marble, 0);
-									break;
-								}
-								float3 current_pos_marble = current_pos + rd_marble * temp_dst_travelled;
-								float2 dst_marble = SDF(current_pos_marble);
-
-								if (dst_marble.x < EPSILON) {
-									marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
-									light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
-									
-									if (_specular == 1) {
-										float3 ref = normalize(2 * _lightIntensity * normal - _directionalLight); // specular
-										specular = pow(saturate(dot(ref, rd_marble)), _Ks);
+							// Reflections
+							if (_marbleReflection == 1) {
+								for (int j = 0; j < MAX_ITERATIONS; j++) {
+									if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
+										marble_result = fixed4(rd_marble, 0);
+										break;
 									}
+									float3 current_pos_marble = current_pos + rd_marble * temp_dst_travelled;
+									float2 dst_marble = SDF(current_pos_marble);
 
-									float temp_ao = (1 - 2 * j / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
-									float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao * _marbleColor);
-									marble_colorLight = saturate(marble_colorLight + specular);
-									colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
-									marble_result = fixed4(marble_colorLight, 1.0f);
+									if (dst_marble.x < EPSILON) {
+										marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
+										light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
+
+										if (_specular == 1) {
+											float3 ref = normalize(2 * _lightIntensity * normal - _directionalLight); // specular
+											specular = pow(saturate(dot(ref, rd_marble)), _Ks);
+										}
+
+										float temp_ao = (1 - 2 * j / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+										float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao * 0.7f + 0.3f * _marbleColor);
+										marble_colorLight = saturate(marble_colorLight + specular);
+										colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
+										marble_result = fixed4(marble_colorLight, 1.0f);
+									}
+									// collision with fractal
+									if (dst_marble.x < EPSILON && temp_dst_travelled <= EPSILON) {
+										//_marbleRadius = _marbleRadius / 2.0f;
+									}
+									temp_dst_travelled += dst_marble;
 								}
-								// collision with fractal
-								if (dst_marble.x < EPSILON && temp_dst_travelled <= EPSILON) {
-									//_marbleRadius = _marbleRadius / 2.0f;
+							}
+
+							// TODO: 
+							// Refraction
+							if (_marbleRefraction == 1) {
+								float3 rd_into_marble = normalize(refract(rd, normal, 1.5f));	// Reflct the ray to get new direction rd2		
+								float d = 2 * _marbleRadius * dot(normal, rd_into_marble);
+								float3 current_pos_inside_marble = current_pos + d * rd_into_marble;
+								float3 normal_other_end = getNormal(current_pos_inside_marble);
+								float3 rd_out_marble = normalize(refract(rd_into_marble, normal_other_end, 0.67f));
+
+								for (int k = 0; k < MAX_ITERATIONS; k++) {
+									if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
+										marble_result = fixed4(rd_out_marble, 0);
+										marble_result = fixed4(1, 0, 0, 1);
+										//return ans;
+										break;
+									}
+									float3 current_pos_outside_marble = current_pos_inside_marble + rd_out_marble * temp_dst_travelled;
+									float2 dst_out = SDF(current_pos_outside_marble);
+
+									if (dst_out.x < EPSILON) {	// Refracted ray hit frarctal
+										marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_out.y) / sponge_iterations + _secondaryColor.rgb * dst_out.y / sponge_iterations);
+										light = (dot(normal_other_end, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
+										float temp_ao = (1 - 2 * k / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
+										float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao * 1.0f);
+										marble_colorLight = saturate(marble_colorLight);
+										colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
+										marble_result = fixed4(marble_colorLight, 1.0f);
+									}
+									temp_dst_travelled += dst_out;
 								}
-								temp_dst_travelled += dst_marble;
 							}
 
 							distance_travelled += dst.x;
 							return marble_result;
 						}
 
+						// Do color calculations for Menger sponge
+
 						float3 color = float3(_mainColor.rgb * (sponge_iterations - dst.y) / sponge_iterations + _secondaryColor.rgb * dst.y / sponge_iterations);
 						light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;
 
-						if (_useShadow == 1) {
-							shadow = calculateShadows(current_pos, -_directionalLight, _shadowDistance.x, _shadowDistance.y, 3) * (1 - _shadowIntensity) + _shadowIntensity; // soft
-							shadow = pow(shadow, _shadowIntensity);
-						}
-						else {
-							shadow = 1;
-						}
-
 						float ao = (1 - 2 * i / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
 
-						float3 colorLight = float3 (color * light * shadow * ao);
+						float3 colorLight = float3 (color * light * ao);
 						colorDepth = float3 (colorLight * (_maxDistance - distance_travelled) / (_maxDistance)+_skyColor.rgb * (distance_travelled) / (_maxDistance));
 
 						result = fixed4(colorLight, 1);
