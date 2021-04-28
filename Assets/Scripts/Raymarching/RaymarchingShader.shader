@@ -139,7 +139,6 @@
 						// Render the environment (skybox)
 						float theta = acos(rd.y) / -3.14f;
 						float phi = atan2(rd.x, -rd.z) / -3.14f * 0.5f;
-						
 						result = fixed4(rd, 0);
 						break;
 					}
@@ -149,14 +148,12 @@
 					{
 						float3 colorDepth;
 						float light;
-						float shadow;
 
 						float3 normal = getNormal(current_pos);
 
 						// Hit marble
 						// Again raymarch from marble to get reflection
 						if (dst.y == 100) {
-
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
 							float temp_dst_travelled = EPSILON + EPSILON * 0.1f;
@@ -204,7 +201,7 @@
 									}
 									// collision with fractal
 									if (dst_marble.x < EPSILON && temp_dst_travelled <= EPSILON) {
-										//_marbleRadius = _marbleRadius / 2.0f;
+
 									}
 									temp_dst_travelled += dst_marble;
 								}
@@ -215,7 +212,6 @@
 						}
 
 						// Do color calculations for Menger sponge
-
 						float3 color = float3(_mainColor.rgb * (sponge_iterations - dst.y) / sponge_iterations + _secondaryColor.rgb * dst.y / sponge_iterations);
 						light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;
 

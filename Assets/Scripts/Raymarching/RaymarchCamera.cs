@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(Camera))]
@@ -343,14 +344,15 @@ public class RaymarchCamera : SceneViewFilter
 
     private void Update()
     {
-        //Debug.Log(_marbleRadius);
-
         if (Input.GetKeyDown(KeyCode.Escape))
         {
             Quit();
         }
 
-        //marble.transform.Translate(_marbleDirection * 0.25f);
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
 
         if (shuffleColors)
         {
