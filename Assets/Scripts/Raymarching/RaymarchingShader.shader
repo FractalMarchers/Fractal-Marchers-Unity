@@ -127,28 +127,10 @@
 				return normalize(normal);
 			}
 
-			float calculateShadows(in float3 ro, in float3 rd, float mint, float maxt, float k)
-			{
-				float res = 1.0;
-				float ph = 1e20;
-				for (float t = mint; t < maxt;)
-				{
-					float h = SDF(ro + rd * t);
-					if (h < EPSILON)
-						return 0.0;
-					float y = h * h / (2.0 * ph);
-					float d = sqrt(h * h - y * y);
-					res = min(res, k * d / max(0.0, t - y));
-					ph = h;
-					t += h;
-				}
-				return res;
-			}
-
 			fixed4 raymarch(float3 ro, float3 rd, float depth) 
 			{
 				fixed4 result = fixed4(1, 1, 1, 1);
-				float distance_travelled = 0;
+				float distance_travelled = EPSILON + EPSILON * 0.1f;
 
 				for (int i = 0; i < MAX_ITERATIONS; i++) 
 				{
@@ -177,7 +159,7 @@
 
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
-							float temp_dst_travelled = 0.0f;
+							float temp_dst_travelled = EPSILON + EPSILON * 0.1f;
 							float3 rd_marble = normalize(reflect(rd, normal));	// Reflct the ray to get new direction
 							float3 specular = float3(0.0f, 0.0f, 0.0f);
 
@@ -225,38 +207,6 @@
 										//_marbleRadius = _marbleRadius / 2.0f;
 									}
 									temp_dst_travelled += dst_marble;
-								}
-							}
-
-							// TODO: 
-							// Refraction
-							if (_marbleRefraction == 1) {
-								float3 rd_into_marble = normalize(refract(rd, normal, 1.5f));	// Reflct the ray to get new direction rd2		
-								float d = 2 * _marbleRadius * dot(normal, rd_into_marble);
-								float3 current_pos_inside_marble = current_pos + d * rd_into_marble;
-								float3 normal_other_end = getNormal(current_pos_inside_marble);
-								float3 rd_out_marble = normalize(refract(rd_into_marble, normal_other_end, 0.67f));
-
-								for (int k = 0; k < MAX_ITERATIONS; k++) {
-									if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
-										marble_result = fixed4(rd_out_marble, 0);
-										marble_result = fixed4(1, 0, 0, 1);
-										//return ans;
-										break;
-									}
-									float3 current_pos_outside_marble = current_pos_inside_marble + rd_out_marble * temp_dst_travelled;
-									float2 dst_out = SDF(current_pos_outside_marble);
-
-									if (dst_out.x < EPSILON) {	// Refracted ray hit frarctal
-										marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_out.y) / sponge_iterations + _secondaryColor.rgb * dst_out.y / sponge_iterations);
-										light = (dot(normal_other_end, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
-										float temp_ao = (1 - 2 * k / float(MAX_ITERATIONS)) * (1 - _aoIntensity) + _aoIntensity; // ambient occlusion
-										float3 marble_colorLight = float3(marble_col * light * 1 * temp_ao * 1.0f);
-										marble_colorLight = saturate(marble_colorLight);
-										colorDepth = float3(marble_colorLight * (_maxDistance - temp_dst_travelled) / (_maxDistance)+_skyColor.rgb * (temp_dst_travelled) / (_maxDistance));
-										marble_result = fixed4(marble_colorLight, 1.0f);
-									}
-									temp_dst_travelled += dst_out;
 								}
 							}
 

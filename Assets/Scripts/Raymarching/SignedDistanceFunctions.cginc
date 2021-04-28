@@ -57,13 +57,6 @@ float pMod(float p, float size)
 	return p;
 }
 
-// Rounded Box
-float sdRoundBox(in float3 p, in float3 b, in float r)
-{
-	float3 q = abs(p) - b;
-	return min(max(q.x, max(q.y, q.z)), 0.0) + length(max(q, 0.0)) - r;
-}
-
 float4 opUS(float4 d1, float4 d2, float k)
 {
 	float h = clamp(0.5 + 0.5*(d2.w - d1.w) / k, 0.0, 1.0);
@@ -85,7 +78,6 @@ float opIS(float d1, float d2, float k)
 }
 
 // Cross
-// s: size of cross
 float sdCross(in float3 p, float b)
 {
 	float da = sd2DBox(p.xy, float2(b, b));

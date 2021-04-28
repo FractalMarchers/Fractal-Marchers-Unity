@@ -53,6 +53,7 @@ public class RaymarchCamera : SceneViewFilter
     public Color[] Secondarycolors = new Color[5];
     private int colorIndex;
     private float t = 0.0f;
+    public bool shuffleColors = false;
 
     [HideInInspector]
     public Matrix4x4 _globalTransform;
@@ -335,6 +336,11 @@ public class RaymarchCamera : SceneViewFilter
         KsSlider.transform.gameObject.SetActive(_specular);
     }
 
+    public void ToggleShuffleColors()
+    {
+        shuffleColors = !shuffleColors;
+    }
+
     private void Update()
     {
         //Debug.Log(_marbleRadius);
@@ -346,16 +352,18 @@ public class RaymarchCamera : SceneViewFilter
 
         //marble.transform.Translate(_marbleDirection * 0.25f);
 
-        _mainColor = Color.Lerp(_mainColor, Maincolors[colorIndex], 0.5f * Time.deltaTime);
-        _secondaryColor = Color.Lerp(_secondaryColor, Secondarycolors[colorIndex], 0.5f * Time.deltaTime);
-        t = Mathf.Lerp(t, 1f, 0.5f * Time.deltaTime);
-        if (t > 0.9f)
+        if (shuffleColors)
         {
-            t = 0.0f;
-            colorIndex += 1;
-            colorIndex = (colorIndex >= Maincolors.Length) ? 0 : colorIndex;
+            _mainColor = Color.Lerp(_mainColor, Maincolors[colorIndex], 0.5f * Time.deltaTime);
+            _secondaryColor = Color.Lerp(_secondaryColor, Secondarycolors[colorIndex], 0.5f * Time.deltaTime);
+            t = Mathf.Lerp(t, 1f, 0.5f * Time.deltaTime);
+            if (t > 0.9f)
+            {
+                t = 0.0f;
+                colorIndex += 1;
+                colorIndex = (colorIndex >= Maincolors.Length) ? 0 : colorIndex;
+            }
         }
-
 
         if (!_pause && _smoothRadius >= smoothFactorSlider.maxValue)
         {
