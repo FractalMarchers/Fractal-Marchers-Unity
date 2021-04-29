@@ -143,6 +143,7 @@ public class RaymarchCamera : SceneViewFilter
             return;
         }
 
+        // Set shader parameters
         _raymarchMat.SetVector("_marblePos", marble.transform.position);
         _raymarchMat.SetMatrix("_CamFrustum", CamFrustum(_camera));
         _raymarchMat.SetMatrix("_CamToWorld", _camera.cameraToWorldMatrix);
@@ -294,6 +295,8 @@ public class RaymarchCamera : SceneViewFilter
 
         return frustum;
     }
+
+    // User controlled parameters.
 
     public void ToggleMarble()
     {

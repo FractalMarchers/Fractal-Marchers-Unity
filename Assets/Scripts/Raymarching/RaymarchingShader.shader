@@ -156,7 +156,7 @@
 						if (dst.y == 100) {
 							float3 marble_col = float3(0.0f, 0.0f, 0.0f);
 							fixed4 marble_result = fixed4(1, 1, 1, 1);
-							float temp_dst_travelled = EPSILON + EPSILON * 0.1f;
+							float temp_dst_travelled = EPSILON * 10 + EPSILON * 10 * 0.1f;
 							float3 rd_marble = normalize(reflect(rd, normal));	// Reflct the ray to get new direction
 							float3 specular = float3(0.0f, 0.0f, 0.0f);
 
@@ -176,7 +176,7 @@
 
 							// Reflections
 							if (_marbleReflection == 1) {
-								for (int j = 0; j < MAX_ITERATIONS; j++) {
+								for (int j = 0; j < MAX_ITERATIONS/2; j++) {
 									if (temp_dst_travelled > _maxDistance || temp_dst_travelled >= depth) {
 										marble_result = fixed4(rd_marble, 0);
 										break;
@@ -184,7 +184,7 @@
 									float3 current_pos_marble = current_pos + rd_marble * temp_dst_travelled;
 									float2 dst_marble = SDF(current_pos_marble);
 
-									if (dst_marble.x < EPSILON) {
+									if (dst_marble.x < EPSILON * 10) {
 										marble_col = float3(_mainColor.rgb * (sponge_iterations - dst_marble.y) / sponge_iterations + _secondaryColor.rgb * dst_marble.y / sponge_iterations);
 										light = (dot(normal, -_directionalLight) * 0.5 + 0.5) *  _lightIntensity;	// N.L
 
